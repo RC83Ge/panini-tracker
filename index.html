@@ -92,10 +92,7 @@
       <span style="font-size:26px">🏆</span>
       <h1>Panini FIFA 2026<span>Official Sticker Collection — 980 stickers</span></h1>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span id="sync-status" style="font-size:11px;color:var(--ok);opacity:0;transition:opacity .5s"></span>
-      <button onclick="showProfileSelector()" style="background:var(--navy3);border:1px solid var(--border);border-radius:10px;color:var(--text);cursor:pointer;font-size:12px;font-weight:600;padding:7px 12px;white-space:nowrap" id="current-profile">👤 Choisir</button>
-    </div>
+    <span id="sync-status" style="font-size:11px;color:var(--ok);opacity:0;transition:opacity .5s;white-space:nowrap"></span>
   </div>
   <div class="stats-bar">
     <div class="stat"><div class="stat-num gold" id="s-total">980</div><div class="stat-label">Total</div></div>
@@ -118,26 +115,6 @@
   <button class="btn-action" id="btn-reset" style="color:var(--miss);border-color:rgba(232,0,45,.3)">🗑 Reset</button>
 </div>
 <div class="grid" id="grid"></div>
-
-<!-- PROFILE SELECTOR -->
-<div id="profile-overlay" style="display:flex;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:20px">
-  <div style="text-align:center">
-    <div style="font-size:48px">🏆</div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold);letter-spacing:2px;margin-top:8px">Qui joue ?</div>
-    <div style="font-size:13px;color:var(--muted);margin-top:4px">Choisis ton profil</div>
-  </div>
-  <div id="profile-btns" style="display:flex;gap:16px">
-    <button onclick="selectProfile('enzo')" style="background:var(--navy3);border:2px solid var(--gold);border-radius:16px;padding:24px 32px;cursor:pointer;color:var(--text);text-align:center;transition:all .15s;min-width:120px">
-      <div style="font-size:40px">🧒</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);letter-spacing:1px;margin-top:8px">Enzo</div>
-    </button>
-    <button onclick="selectProfile('max')" style="background:var(--navy3);border:2px solid var(--red);border-radius:16px;padding:24px 32px;cursor:pointer;color:var(--text);text-align:center;transition:all .15s;min-width:120px">
-      <div style="font-size:40px">👦</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--miss);letter-spacing:1px;margin-top:8px">Max</div>
-    </button>
-  </div>
-  <div id="profile-loading" style="display:none;color:var(--muted);font-size:13px">⏳ Chargement de la collection...</div>
-</div>
 
 <div class="modal-overlay" id="modal-import">
   <div class="modal">
@@ -230,46 +207,40 @@ function t(prefix, names){
 // ===== JSONBIN CONFIG =====
 const API_KEY = '$2a$10$ujNumhGi8NulMG1YAbbdhu1Cj7aqZyuIedVOdRRnVC1cm64wWTBvm';
 const API_URL = 'https://api.jsonbin.io/v3/b';
-const PROFILES = { enzo: null, max: null };
-let currentProfile = localStorage.getItem('panini-profile') || null;
+let BIN_ID = localStorage.getItem('panini-bin-id') || null;
 let saveTimer = null;
 
-async function initProfile(name) {
-  const stored = localStorage.getItem('panini-bin-' + name);
-  if (stored) { PROFILES[name] = stored; return; }
-  // Crée un nouveau bin
+async function initBin() {
+  if (BIN_ID) return;
   const res = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Name': name },
-    body: JSON.stringify({ user: name, stickers: {} })
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Name': 'panini2026' },
+    body: JSON.stringify({ stickers: {} })
   });
   const data = await res.json();
-  const id = data.metadata.id;
-  PROFILES[name] = id;
-  localStorage.setItem('panini-bin-' + name, id);
+  BIN_ID = data.metadata.id;
+  localStorage.setItem('panini-bin-id', BIN_ID);
 }
 
-async function loadFromCloud(name) {
-  const id = PROFILES[name];
-  if (!id) return {};
-  const res = await fetch(`${API_URL}/${id}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+async function loadFromCloud() {
+  if (!BIN_ID) return {};
+  const res = await fetch(`${API_URL}/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
   const data = await res.json();
   return data.record.stickers || {};
 }
 
 async function saveToCloud() {
-  if (!currentProfile || !PROFILES[currentProfile]) return;
-  const id = PROFILES[currentProfile];
-  await fetch(`${API_URL}/${id}`, {
+  if (!BIN_ID) return;
+  await fetch(`${API_URL}/${BIN_ID}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-    body: JSON.stringify({ user: currentProfile, stickers: state })
+    body: JSON.stringify({ stickers: state })
   });
   showSyncStatus('✓ Sauvegardé');
 }
 
 function showSyncStatus(msg, color='var(--ok)') {
-  let el = document.getElementById('sync-status');
+  const el = document.getElementById('sync-status');
   if (!el) return;
   el.textContent = msg; el.style.color = color; el.style.opacity = '1';
   setTimeout(() => { el.style.opacity = '0'; }, 2000);
@@ -280,7 +251,7 @@ let state = {};
 let activeFilter='all', searchTerm='', currentCtx=null;
 
 function save() {
-  localStorage.setItem('panini26-' + currentProfile, JSON.stringify(state));
+  localStorage.setItem('panini26', JSON.stringify(state));
   clearTimeout(saveTimer);
   showSyncStatus('⏳ Sauvegarde...', 'var(--gold)');
   saveTimer = setTimeout(saveToCloud, 1500);
@@ -289,41 +260,6 @@ function save() {
 function totalCount(){return SECTIONS.reduce((s,sec)=>s+sec.stickers.length,0)}
 function collectedCount(){return Object.values(state).filter(v=>v==='collected'||v==='double').length}
 function missingFor(sec){return sec.stickers.filter(st=>!state[st.c]||state[st.c]==='none').map(st=>st.c)}
-
-// ===== PROFILE SELECTOR =====
-function showProfileSelector() {
-  document.getElementById('profile-overlay').style.display = 'flex';
-}
-
-function hideProfileSelector() {
-  document.getElementById('profile-overlay').style.display = 'none';
-}
-
-async function selectProfile(name) {
-  document.getElementById('profile-loading').style.display = 'block';
-  document.getElementById('profile-btns').style.display = 'none';
-  currentProfile = name;
-  localStorage.setItem('panini-profile', name);
-  await initProfile(name);
-  // Charge depuis cloud, fallback localStorage
-  try {
-    state = await loadFromCloud(name);
-    localStorage.setItem('panini26-' + name, JSON.stringify(state));
-  } catch(e) {
-    state = JSON.parse(localStorage.getItem('panini26-' + name) || '{}');
-  }
-  hideProfileSelector();
-  updateProfileUI();
-  renderAll();
-}
-
-function updateProfileUI() {
-  const el = document.getElementById('current-profile');
-  if (el && currentProfile) {
-    const emoji = currentProfile === 'enzo' ? '🧒' : '👦';
-    el.textContent = emoji + ' ' + currentProfile.charAt(0).toUpperCase() + currentProfile.slice(1);
-  }
-}
 
 function updateStats(){
   const total=totalCount(),coll=collectedCount(),miss=total-coll,pct=total?Math.round(coll/total*100):0;
@@ -426,21 +362,15 @@ document.addEventListener('click',()=>document.getElementById('ctx-menu').classL
 
 // ===== INIT =====
 (async () => {
-  if (currentProfile) {
-    // Profil déjà connu — charge directement
-    document.getElementById('profile-overlay').style.display = 'none';
-    await initProfile(currentProfile);
-    try {
-      state = await loadFromCloud(currentProfile);
-      localStorage.setItem('panini26-' + currentProfile, JSON.stringify(state));
-    } catch(e) {
-      state = JSON.parse(localStorage.getItem('panini26-' + currentProfile) || '{}');
-    }
-    updateProfileUI();
-    renderAll();
-  } else {
-    showProfileSelector();
+  showSyncStatus('⏳ Chargement...', 'var(--gold)');
+  try {
+    await initBin();
+    state = await loadFromCloud();
+    localStorage.setItem('panini26', JSON.stringify(state));
+  } catch(e) {
+    state = JSON.parse(localStorage.getItem('panini26') || '{}');
   }
+  renderAll();
 })();
 </script>
 </body>
