@@ -114,6 +114,8 @@
   </div>
   <button class="btn-action" id="btn-import">📥 Importer</button>
   <button class="btn-action export" id="btn-export">📄 Exporter PDF</button>
+  <button class="btn-action" id="btn-save-json" style="color:var(--ok);border-color:rgba(34,197,94,.3)">💾 Sauvegarder</button>
+  <label class="btn-action" style="cursor:pointer;color:#7A8BA8;border-color:rgba(255,255,255,0.08)">📂 Restaurer<input type="file" id="btn-restore" accept=".json" style="display:none"></label>
   <button class="btn-action" id="btn-reset" style="color:var(--miss);border-color:rgba(232,0,45,.3)">🗑 Reset</button>
   <button class="btn-action" id="btn-save" style="color:var(--ok);border-color:rgba(34,197,94,.4)">☁️ Sauvegarder</button>
 </div>
@@ -501,6 +503,33 @@ document.getElementById('btn-export').addEventListener('click', () => {
   a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));
   a.download='panini-2026-manquants.txt';
   a.click();
+document.getElementById('btn-save-json').addEventListener('click', () => {
+  const data = { date: new Date().toISOString(), stickers: state };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}));
+  a.download = 'panini-2026-sauvegarde.json';
+  a.click();
+});
+
+document.getElementById('btn-restore').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      state = data.stickers || data;
+      localStorage.setItem('panini26', JSON.stringify(state));
+      renderAll();
+      alert('✅ Collection restaurée avec succès !');
+    } catch(err) {
+      alert('❌ Fichier invalide.');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Réinitialiser toute la collection ?')){state={};save();renderAll()}});
 document.getElementById('btn-save').addEventListener('click', async () => {
   const btn = document.getElementById('btn-save');
