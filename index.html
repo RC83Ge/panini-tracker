@@ -138,6 +138,10 @@
 </div>
 
 <script>
+function t(prefix, names){
+  return names.map((n,i)=>({c:prefix+(i+1),n:n,foil:i===0}));
+}
+
 // ===== ALBUM OFFICIEL 2026 — ordre réel dans l'album =====
 const SECTIONS = [
   {id:"FWC",name:"Introduction & Musée FIFA",flag:"🌍",stickers:[
@@ -203,9 +207,6 @@ const SECTIONS = [
   {id:"PAN",name:"Panama",flag:"🇵🇦",stickers:t("PAN",["Logo","Orlando Mosquera","Luis Mejia","Fidel Escobar","Andres Andrade","Michael Amir Murillo","Eric Davis","Jose Cordoba","Cesar Blackman","Cristian Martinez","Aníbal Godoy","Adalberto Carrasquilla","Photo équipe","Édgar Bárcenas","Carlos Harvey","Ismael Díaz","Jose Fajardo","Cecilio Waterman","Jose Luiz Rodriguez","Alberto Quintero"])},
 ];
 
-function t(prefix, names){
-  return names.map((n,i)=>({c:prefix+(i+1),n:n,foil:i===0}));
-}
 
 // ===== JSONBIN CONFIG =====
 const API_KEY = '$2a$10$ujNumhGi8NulMG1YAbbdhu1Cj7aqZyuIedVOdRRnVC1cm64wWTBvm';
