@@ -113,6 +113,7 @@
   <button class="btn-action" id="btn-import">📥 Importer</button>
   <button class="btn-action export" id="btn-export">📤 Exporter manquants</button>
   <button class="btn-action" id="btn-reset" style="color:var(--miss);border-color:rgba(232,0,45,.3)">🗑 Reset</button>
+  <button class="btn-action" id="btn-save" style="color:var(--ok);border-color:rgba(34,197,94,.4)">☁️ Sauvegarder</button>
 </div>
 <div class="grid" id="grid"></div>
 
@@ -270,6 +271,56 @@ function updateStats(){
   document.getElementById('main-progress').style.width=pct+'%';
 }
 
+function updateSticker(el, code) {
+  el.classList.remove('collected','double');
+  el.querySelector('.check-mark')?.remove();
+  const s = state[code];
+  if(s==='collected'){
+    el.classList.add('collected');
+    const ck=document.createElement('span');
+    ck.className='check-mark';
+    ck.style.cssText='position:absolute;top:-5px;right:-5px;font-size:7px;background:var(--ok);color:white;border-radius:50%;width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-weight:700';
+    ck.textContent='✓'; el.appendChild(ck);
+  } else if(s==='double'){
+    el.classList.add('double');
+  }
+}
+
+function updateCard(card) {
+  if(!card) return;
+  const id = card.dataset.id;
+  const sec = SECTIONS.find(s=>s.id===id);
+  if(!sec) return;
+  const total=sec.stickers.length;
+  const coll=sec.stickers.filter(st=>state[st.c]&&state[st.c]!=='none').length;
+  const pct=Math.round(coll/total*100);
+  const missing=missingFor(sec);
+  // Update mini progress
+  const mp=card.querySelector('.mini-progress');
+  if(mp) mp.style.width=pct+'%';
+  // Update badge
+  const badge=card.querySelector('.badge');
+  if(badge){
+    badge.className='badge';
+    if(coll===total){badge.classList.add('ok');badge.textContent='✓ Complet';}
+    else if(coll>0){badge.classList.add('partial');badge.textContent=coll+'/'+total;}
+    else{badge.classList.add('miss');badge.textContent=coll+'/'+total;}
+  }
+  // Update missing list
+  const ms=card.querySelector('.missing-section, .missing-ok');
+  if(ms){
+    if(missing.length>0){
+      ms.className='missing-section';
+      ms.innerHTML=`<div class="missing-label">🔴 Manquants (${missing.length})</div><div class="missing-nums">${missing.map(c=>`<span>${c}</span>`).join('')}</div>`;
+    } else {
+      ms.className='missing-ok';
+      ms.innerHTML=`<div style="font-size:11px;color:var(--ok);margin-top:7px">✓ Section complète !</div>`;
+    }
+  }
+  // Update global stats
+  updateStats();
+}
+
 function renderAll(){
   updateStats();
   const grid=document.getElementById('grid');
@@ -325,7 +376,9 @@ function renderAll(){
       if(!state[c]||state[c]==='none') state[c]='collected';
       else if(state[c]==='collected') state[c]='double';
       else delete state[c];
-      save();renderAll();
+      save();
+      updateSticker(el, c);
+      updateCard(el.closest('.country-card'));
     });
     el.addEventListener('contextmenu',e=>{
       e.preventDefault();currentCtx=el.dataset.code;
@@ -355,9 +408,36 @@ document.getElementById('btn-export').addEventListener('click',()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='panini-2026-manquants.txt';a.click();
 });
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Réinitialiser toute la collection ?')){state={};save();renderAll()}});
-document.getElementById('ctx-collect').addEventListener('click',()=>{if(currentCtx){state[currentCtx]='collected';save();renderAll()}document.getElementById('ctx-menu').classList.remove('open')});
-document.getElementById('ctx-double').addEventListener('click',()=>{if(currentCtx){state[currentCtx]='double';save();renderAll()}document.getElementById('ctx-menu').classList.remove('open')});
-document.getElementById('ctx-remove').addEventListener('click',()=>{if(currentCtx){delete state[currentCtx];save();renderAll()}document.getElementById('ctx-menu').classList.remove('open')});
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save');
+  btn.textContent = '⏳ Sauvegarde...'; btn.disabled = true;
+  try {
+    await initBin();
+    await saveToCloud();
+    btn.textContent = '✅ Sauvegardé !';
+  } catch(e) {
+    btn.textContent = '❌ Erreur';
+  }
+  setTimeout(() => { btn.textContent = '☁️ Sauvegarder'; btn.disabled = false; }, 2000);
+});
+document.getElementById('ctx-collect').addEventListener('click',()=>{
+  if(currentCtx){state[currentCtx]='collected';save();
+    const el=document.querySelector(`.sticker[data-code="${currentCtx}"]`);
+    if(el){updateSticker(el,currentCtx);updateCard(el.closest('.country-card'));}
+  }document.getElementById('ctx-menu').classList.remove('open');
+});
+document.getElementById('ctx-double').addEventListener('click',()=>{
+  if(currentCtx){state[currentCtx]='double';save();
+    const el=document.querySelector(`.sticker[data-code="${currentCtx}"]`);
+    if(el){updateSticker(el,currentCtx);updateCard(el.closest('.country-card'));}
+  }document.getElementById('ctx-menu').classList.remove('open');
+});
+document.getElementById('ctx-remove').addEventListener('click',()=>{
+  if(currentCtx){delete state[currentCtx];save();
+    const el=document.querySelector(`.sticker[data-code="${currentCtx}"]`);
+    if(el){updateSticker(el,currentCtx);updateCard(el.closest('.country-card'));}
+  }document.getElementById('ctx-menu').classList.remove('open');
+});
 document.addEventListener('click',()=>document.getElementById('ctx-menu').classList.remove('open'));
 
 // ===== INIT =====
