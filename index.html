@@ -497,12 +497,6 @@ document.getElementById('btn-export').addEventListener('click', () => {
   });
 });
 
-
-  const text=lines.length?lines.join('\n\n'):'Collection complète ! 🎉';
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));
-  a.download='panini-2026-manquants.txt';
-  a.click();
 document.getElementById('btn-save-json').addEventListener('click', () => {
   const data = { date: new Date().toISOString(), stickers: state };
   const a = document.createElement('a');
