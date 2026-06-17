@@ -84,6 +84,7 @@
   .ctx-item.danger{color:var(--miss)}.ctx-item.gold{color:var(--gold)}
   @media(max-width:600px){header{padding:12px 14px 10px}.controls{padding:10px 14px}.grid{padding:10px 14px;grid-template-columns:1fr}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <header>
@@ -401,11 +402,166 @@ document.getElementById('confirm-import').addEventListener('click',()=>{
   document.getElementById('modal-import').classList.remove('open');
   document.getElementById('import-input').value='';
 });
-document.getElementById('btn-export').addEventListener('click',()=>{
-  const lines=[];
-  SECTIONS.forEach(sec=>{const m=missingFor(sec);if(m.length) lines.push(`${sec.flag} ${sec.name} (${sec.id}):\n  ${m.join(', ')}`)});
-  const text=lines.length?lines.join('\n\n'):'Collection complète ! 🎉';
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='panini-2026-manquants.txt';a.click();
+document.getElementById('btn-export').addEventListener('click', () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const W = 210, marginL = 14, marginR = 14, contentW = W - marginL - marginR;
+  let y = 0;
+
+  // ---- Header ----
+  doc.setFillColor(10, 22, 40);
+  doc.rect(0, 0, W, 32, 'F');
+  doc.setFillColor(245, 166, 35);
+  doc.rect(0, 30, W, 2, 'F');
+
+  doc.setTextColor(245, 166, 35);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('PANINI FIFA WORLD CUP 2026', W/2, 13, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setTextColor(180, 200, 220);
+  doc.text('Liste des autocollants manquants', W/2, 21, { align: 'center' });
+
+  const today = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  doc.setFontSize(8);
+  doc.setTextColor(120, 140, 160);
+  doc.text('Généré le ' + today, W/2, 27, { align: 'center' });
+
+  y = 40;
+
+  // ---- Stats ----
+  const totalS = SECTIONS.reduce((s,sec)=>s+sec.stickers.length,0);
+  const collS = Object.values(state).filter(v=>v==='collected'||v==='double').length;
+  const missS = totalS - collS;
+  const pctS = totalS ? Math.round(collS/totalS*100) : 0;
+
+  doc.setFillColor(17, 30, 53);
+  doc.roundedRect(marginL, y, contentW, 16, 3, 3, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+
+  const stats = [
+    { label: 'TOTAL', val: totalS, color: [245,166,35] },
+    { label: 'COLLECTÉES', val: collS, color: [34,197,94] },
+    { label: 'MANQUANTES', val: missS, color: [232,0,45] },
+    { label: 'COMPLÉTÉ', val: pctS+'%', color: [245,166,35] },
+  ];
+  const sw = contentW / 4;
+  stats.forEach((s, i) => {
+    const sx = marginL + i * sw + sw/2;
+    doc.setTextColor(...s.color);
+    doc.setFontSize(13);
+    doc.text(String(s.val), sx, y + 8, { align: 'center' });
+    doc.setTextColor(120, 140, 160);
+    doc.setFontSize(6.5);
+    doc.text(s.label, sx, y + 13, { align: 'center' });
+  });
+
+  // Progress bar
+  y += 20;
+  doc.setFillColor(30, 45, 70);
+  doc.roundedRect(marginL, y, contentW, 4, 2, 2, 'F');
+  if (pctS > 0) {
+    doc.setFillColor(232, 0, 45);
+    doc.roundedRect(marginL, y, contentW * pctS/100, 4, 2, 2, 'F');
+  }
+  y += 10;
+
+  // ---- Sections ----
+  const missingSections = SECTIONS.filter(sec => missingFor(sec).length > 0);
+
+  if (missingSections.length === 0) {
+    doc.setTextColor(34, 197, 94);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('🎉 Collection complète !', W/2, y+20, { align: 'center' });
+  } else {
+    let col = 0;
+    const cols = 2;
+    const colW = (contentW - 6) / cols;
+
+    missingSections.forEach((sec, idx) => {
+      const missing = missingFor(sec);
+      const chips = missing;
+      const chipsPerRow = 6;
+      const chipRows = Math.ceil(chips.length / chipsPerRow);
+      const blockH = 8 + 5 + chipRows * 7 + 5; // header + label + chips + padding
+
+      col = idx % cols;
+      if (col === 0 && idx > 0) y += 0; // handled below
+
+      const x = marginL + col * (colW + 6);
+
+      // Auto page break
+      if (y + blockH > 275) {
+        if (col === 0 || (col === 1 && y + blockH > 275)) {
+          doc.addPage();
+          y = 15;
+        }
+      }
+
+      // Card background
+      doc.setFillColor(17, 30, 53);
+      doc.roundedRect(x, y, colW, blockH, 3, 3, 'F');
+      doc.setDrawColor(30, 50, 80);
+      doc.roundedRect(x, y, colW, blockH, 3, 3, 'S');
+
+      // Flag + name
+      doc.setFontSize(14);
+      doc.setTextColor(255,255,255);
+      doc.text(sec.flag, x + 4, y + 7);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(232, 220, 180);
+      doc.text(sec.name, x + 13, y + 6);
+
+      // Code badge
+      doc.setFillColor(245, 166, 35);
+      doc.roundedRect(x + colW - 20, y + 2, 17, 5, 1.5, 1.5, 'F');
+      doc.setTextColor(10, 22, 40);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(sec.id + ' · ' + missing.length + ' manq.', x + colW - 11.5, y + 5.5, { align: 'center' });
+
+      // Chips
+      let cx = x + 3, cy = y + 12;
+      chips.forEach((code, ci) => {
+        const chipNum = code.replace(sec.id, '');
+        const chipW = 10;
+        doc.setFillColor(40, 20, 25);
+        doc.setDrawColor(232, 0, 45);
+        doc.roundedRect(cx, cy, chipW, 5.5, 1, 1, 'FD');
+        doc.setTextColor(255, 100, 100);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'bold');
+        doc.text(chipNum, cx + chipW/2, cy + 3.8, { align: 'center' });
+        cx += chipW + 2;
+        if ((ci + 1) % chipsPerRow === 0) { cx = x + 3; cy += 7; }
+      });
+
+      // Move y after right column
+      if (col === cols - 1 || idx === missingSections.length - 1) {
+        y += blockH + 5;
+      }
+    });
+  }
+
+  // ---- Footer on each page ----
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(10, 22, 40);
+    doc.rect(0, 287, W, 10, 'F');
+    doc.setTextColor(80, 100, 130);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Panini FIFA World Cup 2026 — rc83ge.github.io/panini-tracker', marginL, 293);
+    doc.text('Page ' + i + ' / ' + pageCount, W - marginR, 293, { align: 'right' });
+  }
+
+  doc.save('panini-2026-manquants.pdf');
 });
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Réinitialiser toute la collection ?')){state={};save();renderAll()}});
 document.getElementById('btn-save').addEventListener('click', async () => {
