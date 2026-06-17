@@ -113,8 +113,7 @@
     <button class="filter-btn" data-f="partial">En cours</button>
   </div>
   <button class="btn-action" id="btn-import">📥 Importer</button>
-  <button class="btn-action export" id="btn-export">📄 PDF manquants</button>
-  <button class="btn-action export" id="btn-export-txt" style="border-color:var(--muted);color:var(--muted)">📝 TXT manquants</button>
+  <button class="btn-action export" id="btn-export">📄 Exporter PDF</button>
   <button class="btn-action" id="btn-reset" style="color:var(--miss);border-color:rgba(232,0,45,.3)">🗑 Reset</button>
   <button class="btn-action" id="btn-save" style="color:var(--ok);border-color:rgba(34,197,94,.4)">☁️ Sauvegarder</button>
 </div>
@@ -491,23 +490,17 @@ document.getElementById('btn-export').addEventListener('click', () => {
 
   html2pdf().set(opt).from(el).save().then(() => {
     document.body.removeChild(el);
-    btn.textContent = '📄 PDF manquants';
+    btn.textContent = '📄 Exporter PDF';
     btn.disabled = false;
   });
 });
 
-document.getElementById('btn-export-txt').addEventListener('click',()=>{
-  const lines=[];
-  SECTIONS.forEach(sec=>{
-    const m=missingFor(sec);
-    if(m.length) lines.push(`${sec.flag} ${sec.name} (${sec.id}):\n  ${m.join(', ')}`);
-  });
+
   const text=lines.length?lines.join('\n\n'):'Collection complète ! 🎉';
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));
   a.download='panini-2026-manquants.txt';
   a.click();
-});
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Réinitialiser toute la collection ?')){state={};save();renderAll()}});
 document.getElementById('btn-save').addEventListener('click', async () => {
   const btn = document.getElementById('btn-save');
