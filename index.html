@@ -762,16 +762,26 @@ document.getElementById('ctx-remove').addEventListener('click',()=>{
 document.addEventListener('click',()=>document.getElementById('ctx-menu').classList.remove('open'));
 
 // ===== INIT =====
+// Charge depuis localStorage immédiatement pour afficher les stickers
+state = JSON.parse(localStorage.getItem('panini26') || '{}');
+renderAll();
+
+// Sync cloud en arrière-plan sans bloquer l'affichage
 (async () => {
-  showSyncStatus('⏳ Chargement...', 'var(--gold)');
   try {
     await initBin();
-    state = await loadFromCloud();
-    localStorage.setItem('panini26', JSON.stringify(state));
+    const cloudState = await loadFromCloud();
+    // Merge: cloud + local (garde le plus complet)
+    const merged = Object.assign({}, state, cloudState);
+    if (JSON.stringify(merged) !== JSON.stringify(state)) {
+      state = merged;
+      localStorage.setItem('panini26', JSON.stringify(state));
+      renderAll();
+    }
+    showSyncStatus('☁️ Synchronisé', 'var(--ok)');
   } catch(e) {
-    state = JSON.parse(localStorage.getItem('panini26') || '{}');
+    showSyncStatus('📴 Mode local', 'var(--muted)');
   }
-  renderAll();
 })();
 </script>
 </body>
