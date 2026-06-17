@@ -84,7 +84,6 @@
   .ctx-item.danger{color:var(--miss)}.ctx-item.gold{color:var(--gold)}
   @media(max-width:600px){header{padding:12px 14px 10px}.controls{padding:10px 14px}.grid{padding:10px 14px;grid-template-columns:1fr}}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <header>
@@ -407,8 +406,77 @@ document.getElementById('confirm-import').addEventListener('click',()=>{
   document.getElementById('import-input').value='';
 });
 document.getElementById('btn-export').addEventListener('click', () => {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const missingSections = SECTIONS.filter(sec => missingFor(sec).length > 0);
+  const totalS = totalCount();
+  const collS = collectedCount();
+  const missS = totalS - collS;
+  const pctS = totalS ? Math.round(collS/totalS*100) : 0;
+  const today = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+
+  const rows = missingSections.map(sec => {
+    const missing = missingFor(sec);
+    const chips = missing.map(c => `<span class="chip">${c.replace(sec.id,'')}</span>`).join('');
+    return `<div class="card">
+      <div class="card-header">
+        <span class="flag">${sec.flag}</span>
+        <span class="cname">${sec.name}</span>
+        <span class="badge">${sec.id} · ${missing.length} manquants</span>
+      </div>
+      <div class="chips">${chips}</div>
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Panini 2026 — Manquants</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#fff;color:#111;padding:0}
+    .header{background:#0A1628;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+    .header h1{font-size:16px;color:#F5A623;letter-spacing:1px}
+    .header .sub{font-size:11px;color:#aaa;margin-top:2px}
+    .header .date{font-size:10px;color:#888}
+    .stats{display:flex;gap:0;border-bottom:2px solid #F5A623}
+    .stat{flex:1;text-align:center;padding:10px;border-right:1px solid #eee}
+    .stat:last-child{border-right:none}
+    .stat .num{font-size:20px;font-weight:bold}
+    .stat .lbl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+    .pbar-wrap{height:5px;background:#eee}
+    .pbar{height:5px;background:linear-gradient(90deg,#E8002D,#F5A623)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;page-break-inside:avoid}
+    .card{border:1px solid #ddd;border-radius:8px;overflow:hidden;page-break-inside:avoid}
+    .card-header{background:#f5f7fa;padding:7px 10px;display:flex;align-items:center;gap:7px;border-bottom:1px solid #eee}
+    .flag{font-size:18px}
+    .cname{font-weight:bold;font-size:12px;flex:1}
+    .badge{background:#E8002D;color:#fff;font-size:9px;font-weight:bold;border-radius:10px;padding:2px 7px;white-space:nowrap}
+    .chips{padding:7px 8px;display:flex;flex-wrap:wrap;gap:4px}
+    .chip{background:#fff0f0;border:1px solid #ffcccc;color:#cc0022;font-size:9px;font-weight:bold;border-radius:4px;padding:2px 5px}
+    .footer{text-align:center;font-size:9px;color:#aaa;padding:10px;border-top:1px solid #eee;margin-top:4px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.header{-webkit-print-color-adjust:exact}}
+  </style></head><body>
+  <div class="header">
+    <div><div class="h1" style="font-size:15px;font-weight:bold;color:#F5A623;letter-spacing:1px">🏆 PANINI FIFA WORLD CUP 2026</div>
+    <div class="sub">Liste des autocollants manquants</div></div>
+    <div class="date">Généré le ${today}</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num" style="color:#F5A623">${totalS}</div><div class="lbl">Total</div></div>
+    <div class="stat"><div class="num" style="color:#22C55E">${collS}</div><div class="lbl">Collectées</div></div>
+    <div class="stat"><div class="num" style="color:#E8002D">${missS}</div><div class="lbl">Manquantes</div></div>
+    <div class="stat"><div class="num" style="color:#F5A623">${pctS}%</div><div class="lbl">Complété</div></div>
+  </div>
+  <div class="pbar-wrap"><div class="pbar" style="width:${pctS}%"></div></div>
+  ${missingSections.length === 0
+    ? '<div style="text-align:center;padding:40px;font-size:18px;color:#22C55E;font-weight:bold">🎉 Collection complète !</div>'
+    : '<div class="grid">' + rows + '</div>'}
+  <div class="footer">rc83ge.github.io/panini-tracker</div>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+});
 
   const W = 210, marginL = 14, marginR = 14, contentW = W - marginL - marginR;
   let y = 0;
